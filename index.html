@@ -38,39 +38,11 @@
         let isSaving = false;
 
 // 預設空白表格（底部改為公會四個專屬分頁名稱，且移除排名欄位）
-        const defaultSheet = [
-            {
-                "name": "Romant1c", // 第一個分頁
-                "celldata": [
-                    { "r": 0, "c": 0, "v": { "v": "名稱", "bl": 1 } },
-                    { "r": 0, "c": 1, "v": { "v": "職業", "bl": 1 } },
-                    { "r": 0, "c": 2, "v": { "v": "等級", "bl": 1 } }
-                ]
-            },
-            {
-                "name": "Romant2c", // 第二個分頁
-                "celldata": [
-                    { "r": 0, "c": 0, "v": { "v": "名稱", "bl": 1 } },
-                    { "r": 0, "c": 1, "v": { "v": "職業", "bl": 1 } },
-                    { "r": 0, "c": 2, "v": { "v": "等級", "bl": 1 } }
-                ]
-            },
-            {
-                "name": "Romant4c", // 第三個分頁
-                "celldata": [
-                    { "r": 0, "c": 0, "v": { "v": "名稱", "bl": 1 } },
-                    { "r": 0, "c": 1, "v": { "v": "職業", "bl": 1 } },
-                    { "r": 0, "c": 2, "v": { "v": "等級", "bl": 1 } }
-                ]
-            },
-            {
-                "name": "Romant5c", // 第四個分頁
-                "celldata": [
-                    { "r": 0, "c": 0, "v": { "v": "名稱", "bl": 1 } },
-                    { "r": 0, "c": 1, "v": { "v": "職業", "bl": 1 } },
-                    { "r": 0, "c": 2, "v": { "v": "等級", "bl": 1 } }
-                ]
-            }
+const defaultSheet = [
+            {"name":"Romant1c","celldata":[]},
+            {"name":"Romant2c","celldata":[]},
+            {"name":"Romant4c","celldata":[]},
+            {"name":"Romant5c","celldata":[]}
         ];
 
         // 從 GitHub Issue 的留言或內文中讀取資料
