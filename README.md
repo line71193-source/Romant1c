@@ -1,0 +1,122 @@
+[index.html](https://github.com/user-attachments/files/29711101/index.html)
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浪漫公會成員表格</title>
+    
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css' />
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/plugins.css' />
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/css/luckysheet.css' />
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/assets/iconfont/iconfont.css' />
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/js/plugin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/luckysheet.umd.js"></script>
+
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        #luckysheet { margin: 0; padding: 0; width: 100%; height: 100%; position: absolute; left: 0; top: 0; }
+        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; pointer-events: none; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+
+    <div id="sync-status">💾 正在從 GitHub 讀取進度...</div>
+    <div id="luckysheet"></div>
+
+    <script>
+        // ======= ⚠️ 請填入你自己的 GitHub 設定 =======
+        const GH_OWNER = "你的GitHub帳號";line71193-source
+        const GH_REPO = "你的專案名稱";Romant1c
+        const GH_ISSUE_NUMBER = "1"; // 固定用第 1 號 Issue 來存資料
+        // 為了讓網頁能寫入資料，需要一個具有 repo 權限的 Fine-grained Personal Access Token
+        const GH_TOKEN = "github_pat_你的安全金鑰"; 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
+        // ==========================================
+
+        let isSaving = false;
+
+        // 預設空白表格
+        const defaultSheet = [{
+            "name": "Romant5c",
+            "celldata": [
+                { "r": 0, "c": 0, "v": { "v": "排名", "bl": 1 } },
+                { "r": 0, "c": 1, "v": { "v": "名稱", "bl": 1 } },
+                { "r": 0, "c": 2, "v": { "v": "職業", "bl": 1 } },
+                { "r": 0, "c": 3, "v": { "v": "等級", "bl": 1 } }
+            ]
+        }];
+
+        // 從 GitHub Issue 的留言或內文中讀取資料
+        async function loadFromGitHub() {
+            const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
+            try {
+                const response = await fetch(url, {
+                    headers: { "Authorization": `token ${GH_TOKEN}` }
+                });
+                const data = await response.json();
+                
+                let sheetData = defaultSheet;
+                // 如果 Issue 內文有資料，就用裡面的資料
+                if (data.body && data.body.trim().startsWith("[")) {
+                    sheetData = JSON.parse(data.body);
+                }
+                
+                initLuckysheet(sheetData);
+                document.getElementById('sync-status').innerText = "🟢 已載入雲端存檔";
+                document.getElementById('sync-status').style.color = "#00ff00";
+            } catch (e) {
+                console.error(e);
+                initLuckysheet(defaultSheet);
+                document.getElementById('sync-status').innerText = "❌ 讀取失敗，載入預設表格";
+                document.getElementById('sync-status').style.color = "#ff0000";
+            }
+        }
+
+        // 儲存到 GitHub Issue 內文中
+        async function saveToGitHub() {
+            if (isSaving) return;
+            isSaving = true;
+            document.getElementById('sync-status').innerText = "⏳ 正在自動儲存到 GitHub...";
+            document.getElementById('sync-status').style.color = "#ffff00";
+
+            const currentData = luckysheet.getluckysheetfile();
+            const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
+
+            try {
+                await fetch(url, {
+                    method: "PATCH",
+                    headers: {
+                        "Authorization": `token ${GH_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ body: JSON.stringify(currentData) })
+                });
+                document.getElementById('sync-status').innerText = "🟢 存檔成功 (關閉網頁不遺失)";
+                document.getElementById('sync-status').style.color = "#00ff00";
+            } catch (e) {
+                document.getElementById('sync-status').innerText = "❌ 儲存失敗";
+                document.getElementById('sync-status').style.color = "#ff0000";
+            } finally {
+                setTimeout(() => { isSaving = false; }, 3000); // 防抖動，3秒內不重複觸發儲存
+            }
+        }
+
+        function initLuckysheet(data) {
+            luckysheet.create({
+                container: 'luckysheet',
+                title: '楓之谷公會等級永久儲存表',
+                lang: 'zh',
+                data: data,
+                hook: {
+                    updated: function() {
+                        // 當格子被修改，觸發自動存檔
+                        saveToGitHub();
+                    }
+                }
+            });
+        }
+
+        window.onload = loadFromGitHub;
+    </script>
+</body>
+</html>
