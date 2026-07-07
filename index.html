@@ -15,8 +15,12 @@
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff !important; }
         #luckysheet { width: 100%; height: 100%; position: absolute; }
-        /* 強制顯示工具列圖示，解決透明問題 */
-        .luckysheet-toolbar-menu-button, .luckysheet-toolbar-button { opacity: 1 !important; visibility: visible !important; display: block !important; }
+        /* 強制修正工具列透明度，確保圖示可見 */
+        .luckysheet-toolbar-menu-button, .luckysheet-toolbar-button, .luckysheet-toolbar-combo-button { 
+            opacity: 1 !important; 
+            visibility: visible !important; 
+            display: block !important; 
+        }
         #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 8px; z-index: 9999; border-radius: 5px; font-size: 14px; }
         #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold; }
     </style>
@@ -33,6 +37,7 @@
         const TOKEN_PART1 = "github_pat_";
         const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
+
         async function saveToGitHub() {
             document.getElementById('sync-status').innerText = "⏳ 正在儲存...";
             let allSheets = luckysheet.getluckysheetfile();
@@ -59,28 +64,23 @@
                 title: "浪漫公會成員表格",
                 hook: {
                     workbookCreateAfter: function() {
-                        // 強制重繪，解決 icon 透明度問題
-                        setTimeout(() => {
-                            luckysheet.refresh();
-                        }, 1000);
+                        // 強制在渲染後 500ms 與 1500ms 重刷介面，徹底解決圖示透明問題
+                        setTimeout(() => luckysheet.refresh(), 500);
+                        setTimeout(() => luckysheet.refresh(), 1500);
                     }
                 }
             });
         }
 
         window.onload = function() {
-            // 防止快取
             fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}?t=${new Date().getTime()}`, {
                 headers: { "Authorization": `token ${GH_TOKEN}` }
             })
             .then(r => r.json())
             .then(data => {
                 let initialData = null;
-                // 檢查是否為空字串或無效資料
                 if (data.body && data.body.trim().length > 5) {
-                    try { 
-                        initialData = JSON.parse(data.body); 
-                    } catch (e) { console.error("解析失敗"); }
+                    try { initialData = JSON.parse(data.body); } catch (e) { console.error("解析失敗"); }
                 }
                 initLuckysheet(initialData);
                 document.getElementById('sync-status').innerText = initialData ? "🟢 已載入資料" : "🟢 已建立新檔案";
