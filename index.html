@@ -11,11 +11,13 @@
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #luckysheet { width: 100%; height: 100%; position: absolute; }
-        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 8px; z-index: 9999; }
+        /* 儲存按鈕設定在左上角，讀取狀態在右上角 */
+        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 8px; z-index: 9999; border-radius: 5px; }
+        #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <button style="position:fixed; top:10px; left:10px; z-index:9999;" onclick="saveToGitHub()">💾 手動儲存</button>
+    <button id="save-btn" onclick="saveToGitHub()">💾 手動儲存</button>
     <div id="sync-status">💾 讀取中...</div>
     <div id="luckysheet"></div>
 
@@ -27,21 +29,17 @@
         const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
+        // --- 核心：儲存功能 ---
         async function saveToGitHub() {
             document.getElementById('sync-status').innerText = "⏳ 正在精簡資料並儲存...";
             
-            // 獲取所有 Sheets
             let allSheets = luckysheet.getluckysheetfile();
-            
-            // 【核心修正】：只保留名稱、設定與 celldata，移除冗餘的 data 矩陣
-            // 這能讓檔案體積縮小 90% 以上，徹底解決 GitHub 存檔斷裂問題
-            let optimizedSheets = allSheets.map(sheet => {
-                return {
-                    name: sheet.name,
-                    config: sheet.config,
-                    celldata: sheet.celldata
-                };
-            });
+            // 精簡：只保留關鍵資料，移除臃腫的 data 矩陣
+            let optimizedSheets = allSheets.map(sheet => ({
+                name: sheet.name,
+                config: sheet.config,
+                celldata: sheet.celldata
+            }));
             
             try {
                 const response = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`, {
@@ -56,19 +54,21 @@
                 if (response.ok) {
                     document.getElementById('sync-status').innerText = "🟢 存檔成功";
                 } else {
-                    document.getElementById('sync-status').innerText = "❌ 失敗，請按 F12 查看錯誤";
+                    document.getElementById('sync-status').innerText = "❌ 存檔失敗";
                 }
             } catch (e) {
                 document.getElementById('sync-status').innerText = "❌ 網路異常";
             }
         }
 
+        // --- 核心：初始化功能 ---
         function initLuckysheet(data) {
             luckysheet.create({
                 container: 'luckysheet',
                 data: data,
                 hook: {
                     workbookCreateAfter: function() {
+                        // 初始化寬度
                         const sheets = luckysheet.getluckysheetfile();
                         sheets.forEach((_, index) => {
                             let colConfig = {};
@@ -80,15 +80,24 @@
             });
         }
 
+        // --- 核心：讀取功能 (包含防錯) ---
         fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}?t=${new Date().getTime()}`, {
             headers: { "Authorization": `token ${GH_TOKEN}` }
-        }).then(r => r.json()).then(data => {
-            if(data.body) {
-                // 如果 GitHub 內文為空，則設為 null 讓 Luckysheet 自行初始化
-                let parsedData = data.body.trim() ? JSON.parse(data.body) : null;
-                initLuckysheet(parsedData);
-                document.getElementById('sync-status').innerText = "🟢 已讀取";
+        })
+        .then(r => r.json())
+        .then(data => {
+            let initialData = null;
+            if (data.body && data.body.trim().length > 5) {
+                try {
+                    initialData = JSON.parse(data.body);
+                } catch (e) { console.error("解析失敗"); }
             }
+            initLuckysheet(initialData);
+            document.getElementById('sync-status').innerText = "🟢 已讀取";
+        })
+        .catch(() => {
+            initLuckysheet(null);
+            document.getElementById('sync-status').innerText = "🟢 已初始化空白表格";
         });
     </script>
 </body>
