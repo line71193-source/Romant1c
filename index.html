@@ -11,24 +11,22 @@
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
         #luckysheet { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
-        #status { position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; }
+        #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        #status { position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 14px; }
     </style>
 </head>
 <body>
-    <button id="save-btn" onclick="saveData()">💾 儲存</button>
+    <button id="save-btn" onclick="saveData()">💾 儲存至 Gist</button>
     <div id="status">準備就緒</div>
     <div id="luckysheet"></div>
 
     <script>
-        const GH_OWNER = "line71193-source";
-        const GH_REPO = "Romant1c";
-        const GH_ISSUE = "1";
+        // 設定你的 Gist ID 與 Token
+        const GIST_ID = "558e6bb58c5a436b80e0a6e1461a6d35";
         const TOKEN_PART1 = "github_pat_";
         const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
-        // 初始化表格
         function init(data) {
             luckysheet.create({
                 container: 'luckysheet',
@@ -36,27 +34,28 @@
                 lang: 'zh',
                 showtoolbar: true,
                 showinfobar: true,
-                showsheetbar: true
+                showsheetbar: true,
+                hook: {
+                    workbookCreateAfter: () => setTimeout(() => luckysheet.refresh(), 1000)
+                }
             });
         }
 
-        // 讀取資料
         window.onload = async () => {
             try {
-                const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE}?t=${Date.now()}`, {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`, {
                     headers: { "Authorization": `token ${GH_TOKEN}` }
                 });
                 const json = await res.json();
-                const bodyData = json.body ? JSON.parse(json.body) : null;
-                init(bodyData);
-                document.getElementById('status').innerText = "🟢 資料已讀取";
+                const content = json.files["data.json"].content;
+                init(JSON.parse(content));
+                document.getElementById('status').innerText = "🟢 已讀取 Gist 資料";
             } catch (e) {
                 init(null);
                 document.getElementById('status').innerText = "⚪ 新表格模式";
             }
         };
 
-        // 儲存資料：只存最乾淨的 JSON，避免請求體過大
         async function saveData() {
             document.getElementById('status').innerText = "⏳ 儲存中...";
             const data = luckysheet.getluckysheetfile().map(s => ({
@@ -66,14 +65,20 @@
             }));
             
             try {
-                await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE}`, {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: "PATCH",
                     headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ body: JSON.stringify(data) })
+                    body: JSON.stringify({
+                        files: { "data.json": { content: JSON.stringify(data) } }
+                    })
                 });
-                document.getElementById('status').innerText = "🟢 存檔成功";
+                if (res.ok) {
+                    document.getElementById('status').innerText = "🟢 存檔成功";
+                } else {
+                    document.getElementById('status').innerText = "❌ 存檔失敗 (權限/容量)";
+                }
             } catch (e) {
-                document.getElementById('status').innerText = "❌ 存檔失敗";
+                document.getElementById('status').innerText = "❌ 網路錯誤";
             }
         }
     </script>
