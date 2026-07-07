@@ -11,7 +11,6 @@
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #luckysheet { width: 100%; height: 100%; position: absolute; }
-        /* 儲存按鈕設定在左上角，讀取狀態在右上角 */
         #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 8px; z-index: 9999; border-radius: 5px; }
         #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
     </style>
@@ -29,12 +28,9 @@
         const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
-        // --- 核心：儲存功能 ---
         async function saveToGitHub() {
             document.getElementById('sync-status').innerText = "⏳ 正在精簡資料並儲存...";
-            
             let allSheets = luckysheet.getluckysheetfile();
-            // 精簡：只保留關鍵資料，移除臃腫的 data 矩陣
             let optimizedSheets = allSheets.map(sheet => ({
                 name: sheet.name,
                 config: sheet.config,
@@ -44,30 +40,23 @@
             try {
                 const response = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`, {
                     method: "PATCH",
-                    headers: { 
-                        "Authorization": `token ${GH_TOKEN}`, 
-                        "Content-Type": "application/json" 
-                    },
+                    headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" },
                     body: JSON.stringify({ body: JSON.stringify(optimizedSheets) })
                 });
-
-                if (response.ok) {
-                    document.getElementById('sync-status').innerText = "🟢 存檔成功";
-                } else {
-                    document.getElementById('sync-status').innerText = "❌ 存檔失敗";
-                }
+                document.getElementById('sync-status').innerText = response.ok ? "🟢 存檔成功" : "❌ 存檔失敗";
             } catch (e) {
                 document.getElementById('sync-status').innerText = "❌ 網路異常";
             }
         }
 
-        // --- 核心：初始化功能 (整合語言與工具列) ---
         function initLuckysheet(data) {
             luckysheet.create({
                 container: 'luckysheet',
-                lang: 'zh',              // 強制設定為中文
-                showtoolbar: true,       // 顯示工具列
+                lang: 'zh',
+                showtoolbar: true,
+                showinfobar: true, // 開啟標題列
                 data: data,
+                title: "浪漫公會成員表格", // 設定表格標題
                 hook: {
                     workbookCreateAfter: function() {
                         const sheets = luckysheet.getluckysheetfile();
@@ -76,12 +65,13 @@
                             for(let i = 0; i < 30; i++) colConfig[i] = 115;
                             luckysheet.setColumnWidth(colConfig, index);
                         });
+                        // 強制重繪工具列
+                        setTimeout(() => luckysheet.refresh(), 500);
                     }
                 }
             });
         }
 
-        // --- 核心：讀取功能 (包含防錯) ---
         fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}?t=${new Date().getTime()}`, {
             headers: { "Authorization": `token ${GH_TOKEN}` }
         })
@@ -89,16 +79,14 @@
         .then(data => {
             let initialData = null;
             if (data.body && data.body.trim().length > 5) {
-                try {
-                    initialData = JSON.parse(data.body);
-                } catch (e) { console.error("解析失敗"); }
+                try { initialData = JSON.parse(data.body); } catch (e) { console.error("解析失敗"); }
             }
             initLuckysheet(initialData);
             document.getElementById('sync-status').innerText = "🟢 已讀取";
         })
         .catch(() => {
             initLuckysheet(null);
-            document.getElementById('sync-status').innerText = "🟢 已初始化空白表格";
+            document.getElementById('sync-status').innerText = "🟢 已初始化";
         });
     </script>
 </body>
