@@ -61,14 +61,15 @@
             }
         }
 
-        // --- 核心：初始化功能 ---
+        // --- 核心：初始化功能 (整合語言與工具列) ---
         function initLuckysheet(data) {
             luckysheet.create({
                 container: 'luckysheet',
+                lang: 'zh',              // 強制設定為中文
+                showtoolbar: true,       // 顯示工具列
                 data: data,
                 hook: {
                     workbookCreateAfter: function() {
-                        // 初始化寬度
                         const sheets = luckysheet.getluckysheetfile();
                         sheets.forEach((_, index) => {
                             let colConfig = {};
