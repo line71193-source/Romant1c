@@ -22,7 +22,7 @@
 <body>
 
     <button id="manual-save-btn" onclick="saveToGitHub()">💾 手動儲存</button>
-    <div id="sync-status">💾 正在從 GitHub 讀取進度...</div>
+    <div id="sync-status">💾 正在從 GitHub 讀取...</div>
     <div id="luckysheet"></div>
 
     <script>
@@ -34,33 +34,26 @@
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
         let isSaving = false;
-        const defaultSheet = [
-            {"name":"Romant1c","celldata":[]},
-            {"name":"Romant2c","celldata":[]},
-            {"name":"Romant4c","celldata":[]},
-            {"name":"Romant5c","celldata":[]}
-        ];
 
         async function loadFromGitHub() {
             const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
             try {
                 const response = await fetch(url, { headers: { "Authorization": `token ${GH_TOKEN}` } });
                 const data = await response.json();
-                let sheetData = (data.body && data.body.trim().startsWith("[")) ? JSON.parse(data.body) : defaultSheet;
+                let sheetData = (data.body && data.body.trim().startsWith("[")) ? JSON.parse(data.body) : null;
                 initLuckysheet(sheetData);
-                document.getElementById('sync-status').innerText = "🟢 已載入雲端存檔";
+                document.getElementById('sync-status').innerText = "🟢 已載入";
             } catch (e) {
-                initLuckysheet(defaultSheet);
-                document.getElementById('sync-status').innerText = "❌ 讀取失敗";
+                initLuckysheet(null);
+                document.getElementById('sync-status').innerText = "❌ 載入失敗";
             }
         }
 
         async function saveToGitHub() {
             if (isSaving) return;
             isSaving = true;
-            document.getElementById('sync-status').innerText = "⏳ 正在自動儲存到Github...";
-            document.getElementById('sync-status').style.color = "#ffff00";
-
+            document.getElementById('sync-status').innerText = "⏳ 儲存中...";
+            
             try {
                 const currentData = luckysheet.getluckysheetfile();
                 const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
@@ -78,17 +71,23 @@
         }
 
         function initLuckysheet(data) {
+            // 建立寬度設定物件 (假設設定前 20 欄為 115px)
+            let colWidth = {};
+            for(let i = 0; i < 20; i++) colWidth[i] = 115;
+
             luckysheet.create({
                 container: 'luckysheet',
                 title: '浪漫公會人員表格',
                 lang: 'zh',
-                data: data
+                data: data || [
+                    {"name":"Romant1c","config":{"columnlen":colWidth},"celldata":[]},
+                    {"name":"Romant2c","config":{"columnlen":colWidth},"celldata":[]},
+                    {"name":"Romant4c","config":{"columnlen":colWidth},"celldata":[]},
+                    {"name":"Romant5c","config":{"columnlen":colWidth},"celldata":[]}
+                ]
             });
 
-            // 設定每 30 秒自動儲存一次
-            setInterval(() => {
-                saveToGitHub();
-            }, 30000);
+            setInterval(saveToGitHub, 30000);
         }
 
         window.onload = loadFromGitHub;
