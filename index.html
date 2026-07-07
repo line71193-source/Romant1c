@@ -2,85 +2,82 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>浪漫公會成員表格</title>
+    
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css' />
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/plugins.css' />
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/css/luckysheet.css' />
     <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/js/plugin.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/luckysheet.umd.js"></script>
+
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #luckysheet { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        #save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; }
-        #status { position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 14px; }
+        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; }
+        #manual-save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 8px 15px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <button id="save-btn" onclick="saveData()">💾 儲存至 Gist</button>
-    <div id="status">準備就緒</div>
+
+    <button id="manual-save-btn" onclick="saveToGist()">💾 手動儲存</button>
+    <div id="sync-status">💾 初始化中...</div>
     <div id="luckysheet"></div>
 
     <script>
-        // 設定你的 Gist ID 與 Token
         const GIST_ID = "558e6bb58c5a436b80e0a6e1461a6d35";
-        const TOKEN_PART1 = "github_pat_";
-        const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
+        const TOKEN_PART1 = "ghp_";
+        const TOKEN_PART2 = "LaCprrZjG6wcIcrl0qt1WCNy6bFXsC0KEF9F";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
-        function init(data) {
-            luckysheet.create({
-                container: 'luckysheet',
-                data: data || [{name: "Sheet1", celldata: []}],
-                lang: 'zh',
-                showtoolbar: true,
-                showinfobar: true,
-                showsheetbar: true,
-                hook: {
-                    workbookCreateAfter: () => setTimeout(() => luckysheet.refresh(), 1000)
-                }
-            });
+        async function initGist() {
+            try {
+                const url = `https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`;
+                const response = await fetch(url, { headers: { "Authorization": `token ${GH_TOKEN}` } });
+                const json = await response.json();
+                const content = json.files["data.json"] ? JSON.parse(json.files["data.json"].content) : null;
+                
+                luckysheet.create({
+                    container: 'luckysheet',
+                    lang: 'zh',
+                    data: content || [{"name":"Romant1c","celldata":[]}]
+                });
+                document.getElementById('sync-status').innerText = "🟢 已載入雲端資料";
+            } catch (e) {
+                luckysheet.create({ container: 'luckysheet', data: [{"name":"Romant1c","celldata":[]}] });
+                document.getElementById('sync-status').innerText = "⚠️ 新表格已啟動";
+            }
         }
 
-        window.onload = async () => {
+        async function saveToGist() {
+            document.getElementById('sync-status').innerText = "⏳ 儲存中...";
             try {
-                const res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`, {
-                    headers: { "Authorization": `token ${GH_TOKEN}` }
-                });
-                const json = await res.json();
-                const content = json.files["data.json"].content;
-                init(JSON.parse(content));
-                document.getElementById('status').innerText = "🟢 已讀取 Gist 資料";
-            } catch (e) {
-                init(null);
-                document.getElementById('status').innerText = "⚪ 新表格模式";
-            }
-        };
+                const data = luckysheet.getluckysheetfile().map(s => ({
+                    name: s.name,
+                    celldata: s.celldata,
+                    config: s.config
+                }));
 
-        async function saveData() {
-            document.getElementById('status').innerText = "⏳ 儲存中...";
-            const data = luckysheet.getluckysheetfile().map(s => ({
-                name: s.name,
-                celldata: s.celldata,
-                config: s.config
-            }));
-            
-            try {
-                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: "PATCH",
                     headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" },
                     body: JSON.stringify({
                         files: { "data.json": { content: JSON.stringify(data) } }
                     })
                 });
-                if (res.ok) {
-                    document.getElementById('status').innerText = "🟢 存檔成功";
+
+                if (response.ok) {
+                    document.getElementById('sync-status').innerText = "🟢 儲存成功";
                 } else {
-                    document.getElementById('status').innerText = "❌ 存檔失敗 (權限/容量)";
+                    document.getElementById('sync-status').innerText = "❌ 儲存失敗";
                 }
             } catch (e) {
-                document.getElementById('status').innerText = "❌ 網路錯誤";
+                document.getElementById('sync-status').innerText = "❌ 網路錯誤";
             }
         }
+
+        window.onload = initGist;
+        setInterval(saveToGist, 60000); // 每分鐘自動儲存
     </script>
 </body>
 </html>
