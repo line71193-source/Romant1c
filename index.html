@@ -71,20 +71,27 @@
         }
 
         function initLuckysheet(data) {
-            // 建立寬度設定物件 (假設設定前 20 欄為 115px)
-            let colWidth = {};
-            for(let i = 0; i < 20; i++) colWidth[i] = 115;
-
             luckysheet.create({
                 container: 'luckysheet',
                 title: '浪漫公會人員表格',
                 lang: 'zh',
                 data: data || [
-                    {"name":"Romant1c","config":{"columnlen":colWidth},"celldata":[]},
-                    {"name":"Romant2c","config":{"columnlen":colWidth},"celldata":[]},
-                    {"name":"Romant4c","config":{"columnlen":colWidth},"celldata":[]},
-                    {"name":"Romant5c","config":{"columnlen":colWidth},"celldata":[]}
-                ]
+                    {"name":"Romant1c","celldata":[]},
+                    {"name":"Romant2c","celldata":[]},
+                    {"name":"Romant4c","celldata":[]},
+                    {"name":"Romant5c","celldata":[]}
+                ],
+                hook: {
+                    workbookCreateAfter: function() {
+                        // 強制將所有分頁的前 30 欄寬度設為 115
+                        const sheets = luckysheet.getluckysheetfile();
+                        sheets.forEach((sheet, index) => {
+                            let colConfig = {};
+                            for(let i = 0; i < 30; i++) colConfig[i] = 115;
+                            luckysheet.setColumnWidth(colConfig, index);
+                        });
+                    }
+                }
             });
 
             setInterval(saveToGitHub, 30000);
