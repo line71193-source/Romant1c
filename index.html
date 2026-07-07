@@ -2,27 +2,23 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>浪漫公會成員表格</title>
-    
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css' />
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/plugins.css' />
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/css/luckysheet.css' />
-    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/assets/iconfont/iconfont.css' />
     <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/js/plugin.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/luckysheet.umd.js"></script>
 
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-        #luckysheet { margin: 0; padding: 0; width: 100%; height: 100%; position: absolute; left: 0; top: 0; }
-        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; pointer-events: none; }
-        #manual-save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        #luckysheet { width: 100%; height: 100%; position: absolute; }
+        #sync-status { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 12px; z-index: 9999; }
+        #manual-save-btn { position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 8px 15px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <button id="manual-save-btn" onclick="saveToGitHub()">💾 手動儲存</button>
-    <div id="sync-status">💾 正在從 GitHub 讀取...</div>
+    <div id="sync-status">💾 初始化中...</div>
     <div id="luckysheet"></div>
 
     <script>
@@ -33,68 +29,61 @@
         const TOKEN_PART2 = "11BVPH2GQ0ZqDQXOLOh4o5_VUixbN7HGhd0rJ1J7b22mnzbHotD7rLVily2J9hHu9YQHJUML476VeDtl2K";
         const GH_TOKEN = TOKEN_PART1 + TOKEN_PART2;
 
-        let isSaving = false;
-
         async function loadFromGitHub() {
-            const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
             try {
-                const response = await fetch(url, { headers: { "Authorization": `token ${GH_TOKEN}` } });
+                const response = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`, {
+                    headers: { "Authorization": `token ${GH_TOKEN}`, "Cache-Control": "no-cache" }
+                });
                 const data = await response.json();
                 let sheetData = (data.body && data.body.trim().startsWith("[")) ? JSON.parse(data.body) : null;
                 initLuckysheet(sheetData);
-                document.getElementById('sync-status').innerText = "🟢 已載入";
+                document.getElementById('sync-status').innerText = "🟢 資料已載入";
             } catch (e) {
                 initLuckysheet(null);
-                document.getElementById('sync-status').innerText = "❌ 載入失敗";
+                document.getElementById('sync-status').innerText = "⚠️ 使用新表格";
             }
         }
 
         async function saveToGitHub() {
-            if (isSaving) return;
-            isSaving = true;
             document.getElementById('sync-status').innerText = "⏳ 儲存中...";
-            
+            // 只抓取必要資料，避免 JSON 過大導致 GitHub API 拒絕請求
+            let rawData = luckysheet.getluckysheetfile();
+            let cleanData = rawData.map(sheet => ({
+                name: sheet.name,
+                celldata: sheet.celldata,
+                config: sheet.config
+            }));
+
             try {
-                const currentData = luckysheet.getluckysheetfile();
-                const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`;
-                await fetch(url, {
+                const response = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${GH_ISSUE_NUMBER}`, {
                     method: "PATCH",
                     headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ body: JSON.stringify(currentData) })
+                    body: JSON.stringify({ body: JSON.stringify(cleanData) })
                 });
-                document.getElementById('sync-status').innerText = "🟢 已儲存";
+                if(response.ok) {
+                    document.getElementById('sync-status').innerText = "🟢 儲存成功";
+                } else {
+                    throw new Error("API Error");
+                }
             } catch (e) {
-                document.getElementById('sync-status').innerText = "❌ 儲存失敗";
-            } finally {
-                setTimeout(() => { isSaving = false; }, 3000);
+                document.getElementById('sync-status').innerText = "❌ 儲存失敗 (資料過大)";
+                console.error(e);
             }
         }
 
         function initLuckysheet(data) {
             luckysheet.create({
                 container: 'luckysheet',
-                title: '浪漫公會人員表格',
                 lang: 'zh',
                 data: data || [
                     {"name":"Romant1c","celldata":[]},
                     {"name":"Romant2c","celldata":[]},
                     {"name":"Romant4c","celldata":[]},
                     {"name":"Romant5c","celldata":[]}
-                ],
-                hook: {
-                    workbookCreateAfter: function() {
-                        // 強制將所有分頁的前 30 欄寬度設為 115
-                        const sheets = luckysheet.getluckysheetfile();
-                        sheets.forEach((sheet, index) => {
-                            let colConfig = {};
-                            for(let i = 0; i < 30; i++) colConfig[i] = 115;
-                            luckysheet.setColumnWidth(colConfig, index);
-                        });
-                    }
-                }
+                ]
             });
-
-            setInterval(saveToGitHub, 30000);
+            // 自動儲存設定 (每 60 秒)
+            setInterval(saveToGitHub, 60000);
         }
 
         window.onload = loadFromGitHub;
